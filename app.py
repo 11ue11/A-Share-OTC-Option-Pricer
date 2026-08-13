@@ -37,7 +37,13 @@ with st.sidebar:
     hv_window = st.selectbox("Historical-volatility window", (20, 60, 120, 252), index=3)
 
 st.subheader("Market-data source")
-source = st.radio("Choose a source", ("Public A-share data (AKShare)", "Upload CSV", "Included sample CSV"), horizontal=True)
+source = st.radio(
+    "Choose a source",
+    ("Public A-share data (AKShare)", "Upload CSV", "Included sample CSV"),
+    index=2,
+    horizontal=True,
+    help="The included sample is the most reliable choice for a live presentation. Public sources can be rate-limited or temporarily unavailable.",
+)
 
 prices: pd.DataFrame | None = None
 source_note = ""
@@ -60,7 +66,18 @@ try:
         sample_path = ROOT / "data" / "sample_prices.csv"
         prices = normalize_price_frame(pd.read_csv(sample_path))
         source_note = "Included illustrative sample data (not live market data)."
-except (RuntimeError, ValueError, pd.errors.ParserError) as error:
+except RuntimeError as error:
+    if source == "Public A-share data (AKShare)":
+        sample_path = ROOT / "data" / "sample_prices.csv"
+        prices = normalize_price_frame(pd.read_csv(sample_path))
+        source_note = (
+            "Public market data is temporarily unavailable. The app has switched to its "
+            "included illustrative sample so the pricing workflow remains available."
+        )
+        st.warning(f"{error} Using the included sample CSV instead.")
+    else:
+        st.error(str(error))
+except (ValueError, pd.errors.ParserError) as error:
     st.error(str(error))
 
 if prices is None:
@@ -148,4 +165,3 @@ with st.expander("Methodology and limitations"):
         - Public-data availability and adjustments can vary. Use independently verified data for any production or trading purpose.
         """
     )
-
